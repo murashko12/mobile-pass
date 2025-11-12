@@ -1,23 +1,23 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { StyleSheet, Alert, Dimensions, Platform, View } from 'react-native';
 import { CameraView, Camera, useCameraPermissions } from 'expo-camera';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import SimpleScrollView from '@/components/simple-scroll-view';
 
-const { width } = Dimensions.get('window') 
+const { width } = Dimensions.get('window');
 
 export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const cameraRef = useRef<CameraView>(null);
+  const router = useRouter();
 
   // Запрос разрешения на использование камеры
   useEffect(() => {
     if (permission && !permission.granted && !permission.canAskAgain) {
-      // Если разрешение окончательно отказано
       console.log('Camera permission permanently denied');
     }
   }, [permission]);
@@ -45,61 +45,135 @@ export default function ScannerScreen() {
       /8081/,
       /192\.168\.\d+\.\d+/,
       /localhost/
-    ]
+    ];
     
     return expoPatterns.some(pattern => pattern.test(data));
-  }
+  };
+
+  // Функция для отправки данных сканирования на сервер
+  const sendScanToServer = async (qrType: string, qrData: string) => {
+    try {
+      // В реальном приложении здесь будет запрос к вашему API
+      const scanData = {
+        employeeId: '12345', // В реальном приложении из контекста/хранилища
+        qrCode: qrData,
+        qrType: qrType,
+        timestamp: new Date().toISOString(),
+        location: 'Офис Company N'
+      };
+
+      console.log('Sending scan data to server:', scanData);
+
+      // Имитация запроса к API
+      const response = await fetch('http://localhost:3001/scans', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(scanData),
+      });
+
+      if (response.ok) {
+        return { success: true, message: 'Данные успешно отправлены' };
+      } else {
+        return { success: false, message: 'Ошибка сервера' };
+      }
+    } catch (error) {
+      console.error('Error sending scan data:', error);
+      return { success: false, message: 'Ошибка сети' };
+    }
+  };
 
   // Обработка сканирования QR-кода
-const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
-  if (!scanned && isActive) {
-    console.log('Scanned data:', data);
-    
-    // Игнорируем Expo QR-коды
-    if (isExpoQRCode(data)) {
-      console.log('Ignoring Expo QR code:', data);
-      return;
-    }
+  const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
+    if (!scanned && isActive) {
+      console.log('Scanned data:', data);
+      
+      // Игнорируем Expo QR-коды
+      if (isExpoQRCode(data)) {
+        console.log('Ignoring Expo QR code:', data);
+        return;
+      }
 
-    setScanned(true);
-    
-    // Имитация отправки на сервер
-    const scanData = {
-      employeeId: '12345', // В реальном приложении из контекста пользователя
-      qrCode: data,
-      timestamp: new Date().toISOString(),
-      location: 'Офис Company N'
-    }
-    
-    console.log('Sending scan data to server:', scanData);
-    
-    Alert.alert(
-      'Пропуск отсканирован! ✅',
-      `Код: ${data}\nВремя: ${new Date().toLocaleTimeString()}\n\nДанные отправлены на сервер`,
-      [
-        {
-          text: 'Сканировать еще',
-          style: 'default',
-          onPress: () => {
-            setScanned(false);
+      setScanned(true);
+
+      let scanType = '';
+      let alertMessage = '';
+
+      // Определяем тип сканирования по содержимому QR-кода
+      if (data === 'mobile-pass://checkin-out') {
+        scanType = 'checkin-out';
+        alertMessage = 'Сканирование входа/выхода\n\nОтправка данных на сервер...';
+      } else if (data === 'mobile-pass://lunch-break') {
+        scanType = 'lunch-break';
+        alertMessage = 'Сканирование обеда\n\nОтправка данных на сервер...';
+      } else {
+        scanType = 'unknown';
+        alertMessage = `Неизвестный QR-код: ${data}\n\nОтправка данных на сервер...`;
+      }
+
+      // Показываем уведомление о сканировании
+      Alert.alert(
+        'Пропуск отсканирован! ✅',
+        alertMessage,
+        [
+          {
+            text: 'Отмена',
+            style: 'cancel',
+            onPress: () => setScanned(false),
           },
-        },
-        {
-          text: 'OK',
-          style: 'cancel',
-        }
-      ],
-      { cancelable: false }
-    );
-  }
-};
+          {
+            text: 'Подтвердить',
+            style: 'default',
+            onPress: async () => {
+              // Отправляем данные на сервер
+              const result = await sendScanToServer(scanType, data);
+              
+              if (result.success) {
+                Alert.alert(
+                  'Успех!',
+                  `Тип: ${scanType}\nВремя: ${new Date().toLocaleTimeString()}\n\n${result.message}`,
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => {
+                        setScanned(false);
+                        // Можно перейти на главный экран или обновить данные
+                        // router.replace('/(tabs)');
+                      },
+                    },
+                  ]
+                );
+              } else {
+                Alert.alert(
+                  'Ошибка',
+                  `Не удалось отправить данные: ${result.message}`,
+                  [
+                    {
+                      text: 'Повторить',
+                      onPress: () => setScanned(false),
+                    },
+                    {
+                      text: 'OK',
+                      style: 'cancel',
+                    },
+                  ]
+                );
+              }
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+    }
+  };
 
   // Если разрешения еще загружаются
   if (!permission) {
     return (
       <SimpleScrollView>
         <ThemedView style={styles.container}>
-          <ThemedText>Loading camera permissions...</ThemedText>
+          <ThemedText>Загрузка разрешений камеры...</ThemedText>
         </ThemedView>
       </SimpleScrollView>
     );
@@ -111,10 +185,10 @@ const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) =>
       <SimpleScrollView>
         <ThemedView style={styles.container}>
           <ThemedView style={styles.permissionContainer}>
-            <ThemedText>Camera Permission Required</ThemedText>
+            <ThemedText>Требуется доступ к камере</ThemedText>
             <ThemedText style={styles.instruction}>
-              This app needs camera access to scan QR codes. 
-              Please grant camera permissions in your device settings.
+              Это приложение требует доступ к камере для сканирования QR-кодов.
+              Пожалуйста, предоставьте разрешение в настройках устройства.
             </ThemedText>
             {permission.canAskAgain && (
               <ThemedView style={styles.buttonContainer}>
@@ -123,14 +197,14 @@ const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) =>
                     style={styles.buttonText}
                     onPress={requestPermission}
                   >
-                    Grant Permission
+                    Предоставить доступ
                   </ThemedText>
                 </ThemedView>
               </ThemedView>
             )}
             {!permission.canAskAgain && (
               <ThemedText style={styles.errorText}>
-                Permission permanently denied. Please enable camera access in device settings.
+                Доступ запрещен. Разрешите доступ к камере в настройках устройства.
               </ThemedText>
             )}
           </ThemedView>
@@ -147,12 +221,14 @@ const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) =>
         </ThemedView>
         
         <ThemedText style={styles.instruction}>
-          Наведите камеру на QR-код, чтобы отсканировать его
+          Наведите камеру на QR-код пропуска
         </ThemedText>
 
-        {/* <ThemedText style={styles.note}>
-          Development QR codes are automatically ignored
-        </ThemedText> */}
+        <ThemedView style={styles.qrTypes}>
+          <ThemedText style={styles.qrTypesTitle}>Типы QR-кодов:</ThemedText>
+          <ThemedText>• <ThemedText style={styles.qrHighlight}>Вход/Выход</ThemedText> - mobile-pass://checkin-out</ThemedText>
+          <ThemedText>• <ThemedText style={styles.qrHighlight}>Обед</ThemedText> - mobile-pass://lunch-break</ThemedText>
+        </ThemedView>
 
         <ThemedView style={styles.cameraWrapper}>
           {isActive && (
@@ -163,44 +239,38 @@ const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) =>
                 facing="back"
                 onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
                 barcodeScannerSettings={{
-                  barcodeTypes: ['qr', 'pdf417', 'ean13', 'upc_e'],
+                  barcodeTypes: ['qr', 'pdf417'],
                 }}
                 enableTorch={false}
               />
               <View style={styles.overlay}>
                 <View style={styles.scanFrame} />
-                {/* <View style={[styles.corner, styles.cornerTL]} />
-                <View style={[styles.corner, styles.cornerTR]} />
-                <View style={[styles.corner, styles.cornerBL]} />
-                <View style={[styles.corner, styles.cornerBR]} /> */}
               </View>
             </ThemedView>
           )}
 
           {!isActive && (
             <ThemedView style={styles.cameraPlaceholder}>
-              <ThemedText>Camera inactive</ThemedText>
+              <ThemedText>Камера неактивна</ThemedText>
             </ThemedView>
           )}
         </ThemedView>
 
         {scanned && (
           <ThemedView style={styles.scanResult}>
-            <ThemedText>Scanning paused. Tap "Scan Again" to continue.</ThemedText>
+            <ThemedText>Сканирование приостановлено. Нажмите "Сканировать еще" чтобы продолжить.</ThemedText>
           </ThemedView>
         )}
 
         <ThemedView style={styles.tips}>
-          <ThemedText style={styles.tipsTitle}>Советы по улучшению сканирования:</ThemedText>
-          <ThemedText>• Обеспечьте хорошие условия освещения</ThemedText>
+          <ThemedText style={styles.tipsTitle}>Советы по сканированию:</ThemedText>
+          <ThemedText>• Обеспечьте хорошее освещение</ThemedText>
           <ThemedText>• Держите устройство устойчиво</ThemedText>
           <ThemedText>• Разместите QR-код в рамке</ThemedText>
-          <ThemedText>• Соблюдайте соответствующую дистанцию</ThemedText>
         </ThemedView>
-        
       </ThemedView>
     </SimpleScrollView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -217,16 +287,25 @@ const styles = StyleSheet.create({
   },
   instruction: {
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
     fontSize: 16,
     lineHeight: 22,
   },
-  note: {
-    textAlign: 'center',
-    marginBottom: 24,
-    fontSize: 14,
-    fontStyle: 'italic',
-    opacity: 0.7,
+  qrTypes: {
+    width: '100%',
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    marginBottom: 20,
+  },
+  qrTypesTitle: {
+    fontWeight: 'bold',
+    marginBottom: 8,
+    fontSize: 16,
+  },
+  qrHighlight: {
+    fontWeight: 'bold',
+    color: '#007AFF',
   },
   cameraWrapper: {
     width: '100%',
@@ -268,44 +347,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderRadius: 12,
   },
-  corner: {
-    position: 'absolute',
-    width: 25,
-    height: 25,
-    borderColor: '#00FF00',
-  },
-  // cornerTL: {
-  //   top: '50%',
-  //   left: '50%',
-  //   marginTop: -100,
-  //   marginLeft: -100,
-  //   borderTopWidth: 4,
-  //   borderLeftWidth: 4,
-  // },
-  // cornerTR: {
-  //   top: '50%',
-  //   left: '50%',
-  //   marginTop: -100,
-  //   marginLeft: 75,
-  //   borderTopWidth: 4,
-  //   borderRightWidth: 4,
-  // },
-  // cornerBL: {
-  //   top: '50%',
-  //   left: '50%',
-  //   marginTop: 75,
-  //   marginLeft: -100,
-  //   borderBottomWidth: 4,
-  //   borderLeftWidth: 4,
-  // },
-  // cornerBR: {
-  //   top: '50%',
-  //   left: '50%',
-  //   marginTop: 75,
-  //   marginLeft: 75,
-  //   borderBottomWidth: 4,
-  //   borderRightWidth: 4,
-  // },
   scanResult: {
     padding: 16,
     borderRadius: 8,
@@ -340,22 +381,10 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     backgroundColor: 'rgba(0,0,0,0.05)',
-    marginBottom: 16,
   },
   tipsTitle: {
     fontWeight: 'bold',
     marginBottom: 8,
     fontSize: 16,
-  },
-  debugInfo: {
-    width: '100%',
-    padding: 8,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    borderRadius: 4,
-  },
-  debugText: {
-    fontSize: 10,
-    opacity: 0.7,
-    textAlign: 'center',
   },
 });
