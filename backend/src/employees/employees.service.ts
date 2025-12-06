@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Employee, EmployeeDocument } from './schemas/employee.schema';
@@ -19,6 +19,14 @@ export class EmployeesService {
     const employee = await this.employeeModel.findById(id).exec();
     if (!employee) {
       throw new NotFoundException(`Сотрудник с ID ${id} не найден`);
+    }
+    return employee;
+  }
+
+  async findOneByLogin(Inlogin: string): Promise<EmployeeDocument> {
+    const employee = await this.employeeModel.findOne({ login : Inlogin}).exec();
+    if (!employee) {
+      throw new NotFoundException(`Сотрудник с Login-ом ${Inlogin} не найден`);
     }
     return employee;
   }
@@ -45,5 +53,20 @@ export class EmployeesService {
     if (!result) {
       throw new NotFoundException(`Сотрудник с ID ${id} не найден`);
     }
+  }
+
+  async validateEmployee(login: string, password: string): Promise<{ employeeId: string; name: string }> {
+    const employee = await this.findOneByLogin(login);
+
+    // Сравниваем хеш пароля
+    if (password !== employee.password) {
+    throw new UnauthorizedException('Неверный пароль');
+  }
+
+    // Возвращаем только нужные данные (не весь объект и НЕ пароль!)
+    return {
+      employeeId: employee.id, // или employee.id — Mongoose добавляет .id как строку
+      name: employee.name,
+    };
   }
 }

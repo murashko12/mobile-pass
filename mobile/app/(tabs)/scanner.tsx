@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { StyleSheet, Alert, Dimensions, Platform, View } from 'react-native';
-import { CameraView, Camera, useCameraPermissions } from 'expo-camera';
-import { useFocusEffect, useRouter } from 'expo-router';
+import SimpleScrollView from '@/components/simple-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import SimpleScrollView from '@/components/simple-scroll-view';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Dimensions, StyleSheet, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 

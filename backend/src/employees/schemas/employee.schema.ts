@@ -5,6 +5,9 @@ export type EmployeeDocument = Employee & Document;
 
 @Schema({ timestamps: true })
 export class Employee {
+  //@Prop({ required: true, unique: true })
+  //id: string;
+
   @Prop({ required: true, unique: true })
   login: string;
 

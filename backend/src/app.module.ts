@@ -15,3 +15,4 @@ import { ScansModule } from './scans/scans.module';
   providers: [AppService],
 })
 export class AppModule {}
+export class AuthModule {}

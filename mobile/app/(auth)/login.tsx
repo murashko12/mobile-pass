@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { StyleSheet, Alert } from 'react-native';
-import { Link, useRouter } from 'expo-router';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { ThemedTextInput } from '@/components/themed-text-input';
 import SimpleScrollView from '@/components/simple-scroll-view';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedTextInput } from '@/components/themed-text-input';
+import { ThemedView } from '@/components/themed-view';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { Alert, StyleSheet } from 'react-native';
+
+
+const API_BASE_URL = 'http://172.20.10.2:3001';
 
 export default function LoginScreen() {
   const [login, setLogin] = useState('');
@@ -22,14 +24,50 @@ export default function LoginScreen() {
     setIsLoading(true);
     
     // Имитация аутентификации
-    setTimeout(() => {
+    /*setTimeout(() => {
       setIsLoading(false);
       if (login === 'test1' && password === 'test2') {
         router.replace('/(tabs)');
       } else {
         Alert.alert('Ошибка', 'Неверный логин или пароль');
       }
-    }, 1000);
+    }, 1000);*/
+    setIsLoading(true);
+    try {
+      Alert.alert(JSON.stringify({ login, password }))
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ login, password }),
+      });
+      Alert.alert("Here we fucking go!!!!")
+
+      // Проверяем, успешен ли сам HTTP-запрос (статус 2xx)
+      if (!response.ok) {
+        // Например, 500 Internal Server Error
+        throw new Error(`Сервер ответил с ошибкой: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Авторизация успешна
+        router.replace('/(tabs)');
+      } else {
+        Alert.alert('Ошибка', result.message || 'Неверный логин или пароль');
+      }
+    } catch (error: any) {
+      console.error('Ошибка сети или парсинга:', error);
+      let errorMessage = 'Не удалось подключиться к серверу';
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      Alert.alert('Ошибка', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

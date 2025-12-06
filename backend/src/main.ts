@@ -12,7 +12,9 @@ async function bootstrap() {
       'http://localhost:5173', 
       'http://localhost:3000',
       'http://localhost:8081', // Expo dev server
-      'exp://localhost:8081'   // Expo
+      'exp://localhost:8081',   // Expo
+      'exp://192.168.33.1:8081', // ← важно: добавьте IP!
+      'http://192.168.33.1:8081'
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

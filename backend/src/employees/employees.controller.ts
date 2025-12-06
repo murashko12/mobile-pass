@@ -25,6 +25,14 @@ export class EmployeesController {
     return this.employeesService.findOne(id);
   }
 
+  @Get('by-login/:login')
+  @ApiOperation({ summary: 'Получить сотрудника по Login' })
+  @ApiResponse({ status: 200, description: 'Данные сотрудника', type: Employee })
+  @ApiResponse({ status: 404, description: 'Сотрудник не найден' })
+  async findOneByLogin(@Param('login') login: string): Promise<Employee> {
+    return this.employeesService.findOneByLogin(login);
+  }
+
   @Post()
   @ApiOperation({ summary: 'Создать нового сотрудника' })
   @ApiResponse({ status: 201, description: 'Сотрудник создан', type: Employee })
