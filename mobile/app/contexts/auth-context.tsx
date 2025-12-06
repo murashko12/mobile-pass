@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, ReactNode, useContext, useState } from 'react';
 
 interface User {
   login: string;
   name: string;
   role: string;
+  userId: string;
 }
 
 interface AuthContextType {
@@ -25,6 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
   };
+
 
   return (
     <AuthContext.Provider value={{

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet } from 'react-native';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
+import SimpleScrollView from '@/components/simple-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import SimpleScrollView from '@/components/simple-scroll-view';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet } from 'react-native';
+
 
 interface ScheduleEvent {
   name: string;

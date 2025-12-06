@@ -6,6 +6,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Dimensions, StyleSheet, View } from 'react-native';
 
+
 const { width } = Dimensions.get('window');
 
 export default function ScannerScreen() {

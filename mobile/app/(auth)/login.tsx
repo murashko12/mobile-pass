@@ -1,3 +1,4 @@
+import { useAuth } from '@/app/contexts/auth-context';
 import SimpleScrollView from '@/components/simple-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
@@ -7,13 +8,14 @@ import React, { useState } from 'react';
 import { Alert, StyleSheet } from 'react-native';
 
 
-const API_BASE_URL = 'http://172.20.10.2:3001';
+const API_BASE_URL = 'http://192.168.31.110:3001';
 
 export default function LoginScreen() {
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { user, login : loginContext } = useAuth();
 
   const handleLogin = async () => {
     if (!login || !password) {
@@ -54,6 +56,12 @@ export default function LoginScreen() {
 
       if (result.success) {
         // Авторизация успешна
+        loginContext( {
+          login : login,
+          name : result.data.name,
+          role : "testRole",
+          userId : result.data.employeeId
+        });
         router.replace('/(tabs)');
       } else {
         Alert.alert('Ошибка', result.message || 'Неверный логин или пароль');
