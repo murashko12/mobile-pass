@@ -12,15 +12,26 @@ export class ScansService {
     @InjectModel(Employee.name) private employeeModel: Model<EmployeeDocument>,
   ) {}
 
+  private formatMinutesToTime(totalMinutes: number): string {
+    // Нормализуем отрицательное время (например, 12:50 → 770, но 12:50 - 10 мин = 760 → OK)
+    // Если вышли за 00:00, корректируем (не обязательно, если tolerance мал)
+    const normalized = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
+    const h = Math.floor(normalized / 60);
+    const m = normalized % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  }
+
   async create(createScanDto: CreateScanDto): Promise<Scan> {
     // Если employeeId не предоставлен, ищем по логину или используем тестового пользователя
     let employeeId = createScanDto.employeeId;
 
-    if (!employeeId) {
+    /*if (!employeeId) {
       // В реальном приложении здесь была бы аутентификация
       const testEmployee = await this.employeeModel.findOne({ login: 'test1' });
       employeeId = testEmployee?._id?.toString(); // Добавляем опциональную цепочку
-    }
+    }*/
+
+    console.log('Scann recieved!');
 
     if (!employeeId) {
       throw new BadRequestException('Employee not found');
@@ -45,6 +56,7 @@ export class ScansService {
   private async processScan(scan: ScanDocument): Promise<void> {
     try {
       const employee = await this.employeeModel.findById(scan.employeeId);
+      const debug = false;
       
       if (!employee) {
         scan.status = 'error';
@@ -58,31 +70,94 @@ export class ScansService {
       const currentMinutes = currentTime.getMinutes();
       const currentTimeString = `${currentHour.toString().padStart(2, '0')}:${currentMinutes.toString().padStart(2, '0')}`;
 
+      const [startLunchHour, startLunchMin] = employee.lunchStart.split(':').map(Number);
+      const [endLunchHour, endLunchMin] = employee.lunchEnd.split(':').map(Number);
+      const expectedLunchStartMinutes = startLunchHour * 60 + startLunchMin;
+      const expectedLunchEndMinutes = endLunchHour * 60 + endLunchMin;
+      const [checkInHour, checkInMin] = employee.lunchStart.split(':').map(Number);
+      const [checkOutHour, checkOutMin] = employee.lunchEnd.split(':').map(Number);
+      const expectedCheckInMinutes = checkInHour * 60 + checkInMin;
+      const expectedCheckOutMinutes = checkOutHour * 60 + checkOutMin;
+      const currentTotalMinutes = currentHour * 60 + currentMinutes;
+      const TOLERANCE = 10;
+
       let resultMessage = '';
 
       switch (scan.qrType) {
         case 'checkin-out':
           if (employee.workStatus === 'offline') {
-            // Приход на работу
-            employee.workStatus = 'online';
-            employee.currentLocation = 'В офисе';
-            employee.lastCheckIn = currentTime.toISOString();
-            resultMessage = `Приход на работу в ${currentTimeString}`;
-          } else {
+            if (
+                (currentTotalMinutes <= expectedCheckInMinutes + TOLERANCE) || debug
+              ){
+                // Приход на работу
+                employee.workStatus = 'online';
+                employee.currentLocation = 'В офисе';
+                employee.lastCheckIn = currentTime.toISOString();
+                resultMessage = `Приход на работу в ${currentTimeString}`;
+              } else {
+                const minTime = this.formatMinutesToTime(expectedCheckInMinutes - TOLERANCE);
+                const maxTime = this.formatMinutesToTime(expectedCheckInMinutes + TOLERANCE);
+                resultMessage = `Начало смены разрешено только с ${minTime} до ${maxTime}. Сейчас: ${currentTimeString}.`;
+                scan.status = 'error';
+                scan.result = resultMessage;
+                await scan.save();
+                return;
+              }
+          } else if (employee.workStatus === 'online') {
             // Уход с работы
-            employee.workStatus = 'offline';
-            employee.currentLocation = 'Не в офисе';
-            resultMessage = `Уход с работы в ${currentTimeString}`;
-          }
-          break;
+            if (
+                (currentTotalMinutes >= expectedCheckOutMinutes - TOLERANCE) || debug
+              ){
+                employee.workStatus = 'offline';
+                employee.currentLocation = 'Не в офисе';
+                resultMessage = `Уход с работы в ${currentTimeString}`;
+              } else {
+                const minTime = this.formatMinutesToTime(expectedCheckOutMinutes - TOLERANCE);
+                const maxTime = this.formatMinutesToTime(expectedCheckOutMinutes + TOLERANCE);
+                resultMessage = `Завершение работы разрешено только с ${minTime} до ${maxTime}. Сейчас: ${currentTimeString}.`;
+                scan.status = 'error';
+                scan.result = resultMessage;
+                await scan.save();
+                return;
+              } 
+            } else{
+              resultMessage = `Некорректный статус для входа/выхода: ${employee.workStatus}`;
+            }
+        break;
 
         case 'lunch-break':
           if (employee.currentLocation === 'В офисе') {
-            employee.currentLocation = 'На обеде';
-            resultMessage = `Начало обеда в ${currentTimeString}`;
+            if (
+                (currentTotalMinutes >= expectedLunchStartMinutes - TOLERANCE &&
+                currentTotalMinutes <= expectedLunchStartMinutes + TOLERANCE) || debug
+              ){
+                employee.currentLocation = 'На обеде';
+                resultMessage = `Начало обеда в ${currentTimeString}`;
+              } else {
+                const minTime = this.formatMinutesToTime(expectedLunchStartMinutes - TOLERANCE);
+                const maxTime = this.formatMinutesToTime(expectedLunchStartMinutes + TOLERANCE);
+                resultMessage = `Начало обеда разрешено только с ${minTime} до ${maxTime}. Сейчас: ${currentTimeString}.`;
+                scan.status = 'error';
+                scan.result = resultMessage;
+                await scan.save();
+                return;
+              }
           } else if (employee.currentLocation === 'На обеде') {
-            employee.currentLocation = 'В офисе';
-            resultMessage = `Конец обеда в ${currentTimeString}`;
+            if (
+              (currentTotalMinutes >= expectedLunchEndMinutes - TOLERANCE &&
+              currentTotalMinutes <= expectedLunchEndMinutes + TOLERANCE) || debug
+            ) {
+              employee.currentLocation = 'В офисе';
+              resultMessage = `Конец обеда в ${currentTimeString}`;
+            } else {
+              const minTime = this.formatMinutesToTime(expectedLunchEndMinutes - TOLERANCE);
+              const maxTime = this.formatMinutesToTime(expectedLunchEndMinutes + TOLERANCE);
+              resultMessage = `Окончание обеда разрешено только с ${minTime} до ${maxTime}. Сейчас: ${currentTimeString}.`;
+              scan.status = 'error';
+              scan.result = resultMessage;
+              await scan.save();
+              return;
+            }
           } else {
             resultMessage = `Некорректный статус для обеда: ${employee.currentLocation}`;
           }

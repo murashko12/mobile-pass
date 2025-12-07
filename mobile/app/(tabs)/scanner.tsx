@@ -6,6 +6,11 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Dimensions, StyleSheet, View } from 'react-native';
 
+import { API_BASE_URL } from '../(utils)/api_id';
+
+import { useAuth } from '@/app/contexts/auth-context';
+
+
 
 const { width } = Dimensions.get('window');
 
@@ -15,6 +20,8 @@ export default function ScannerScreen() {
   const [isActive, setIsActive] = useState(true);
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
+  const { user } = useAuth();
+  const [error, setError] = useState<string | null>(null);
 
   // Запрос разрешения на использование камеры
   useEffect(() => {
@@ -53,10 +60,14 @@ export default function ScannerScreen() {
 
   // Функция для отправки данных сканирования на сервер
   const sendScanToServer = async (qrType: string, qrData: string) => {
+    if (!user?.userId) {
+      setError('Пользователь не авторизован');
+      return { success: false, message: 'Пользователь не авторизован' };
+    }
     try {
       // В реальном приложении здесь будет запрос к вашему API
       const scanData = {
-        employeeId: '12345', // В реальном приложении из контекста/хранилища
+        employeeId: user.userId, // В реальном приложении из контекста/хранилища
         qrCode: qrData,
         qrType: qrType,
         timestamp: new Date().toISOString(),
@@ -65,8 +76,8 @@ export default function ScannerScreen() {
 
       console.log('Sending scan data to server:', scanData);
 
-      // Имитация запроса к API
-      const response = await fetch('http://localhost:3001/scans', {
+      // Имитация запроса к API 
+      const response = await fetch(`${API_BASE_URL}/scans`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -74,10 +85,13 @@ export default function ScannerScreen() {
         body: JSON.stringify(scanData),
       });
 
-      if (response.ok) {
+      const result = await response.json();
+
+      if (response.ok && result.status !== 'error') {
         return { success: true, message: 'Данные успешно отправлены' };
       } else {
-        return { success: false, message: 'Ошибка сервера' };
+        const errorMsg = result.result || result.message || 'Неизвестная ошибка';
+        return { success: false, message: errorMsg };
       }
     } catch (error) {
       console.error('Error sending scan data:', error);
@@ -100,6 +114,7 @@ export default function ScannerScreen() {
 
       let scanType = '';
       let alertMessage = '';
+      console.log(`Scan is ${data}`);
 
       // Определяем тип сканирования по содержимому QR-кода
       if (data === 'mobile-pass://checkin-out') {
@@ -132,7 +147,7 @@ export default function ScannerScreen() {
               
               if (result.success) {
                 Alert.alert(
-                  'Успех!',
+                  'Отослано!',
                   `Тип: ${scanType}\nВремя: ${new Date().toLocaleTimeString()}\n\n${result.message}`,
                   [
                     {

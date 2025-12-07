@@ -60,12 +60,16 @@ function App() {
 
   const getWorkStatusBadge = (workStatus: Employee['workStatus']) => {
     const variants = {
-      working: { label: 'Работает', variant: 'default' as const },
+      //working: { label: 'Работает', variant: 'default' as const },
+      online: {label: 'Работает', variant: 'default' as const },
       break: { label: 'Обед', variant: 'secondary' as const },
       offline: { label: 'Не на смене', variant: 'outline' as const }
     }
     
     const status = variants[workStatus]
+    if (!status) {
+      return <Badge variant="outline">Неизвестно</Badge>
+    }
     return <Badge variant={status.variant}>{status.label}</Badge>
   }
 
@@ -267,7 +271,7 @@ function App() {
               {employees.filter(e => e.workStatus !== 'offline').length}
             </div>
             <p className="text-xs text-gray-600">
-              {employees.filter(e => e.workStatus === 'working').length} работают
+              {employees.filter(e => e.workStatus === 'online').length} работают
             </p>
           </CardContent>
         </Card>

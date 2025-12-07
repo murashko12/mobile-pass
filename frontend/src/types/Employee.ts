@@ -7,7 +7,7 @@ export interface Employee {
   department: string
   status: 'active' | 'inactive'
   currentLocation: string
-  workStatus: 'working' | 'break' | 'offline'
+  workStatus: 'online' | 'break' | 'offline'
   lastCheckIn: string
   rating: number
   penalties: number

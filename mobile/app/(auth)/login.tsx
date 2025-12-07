@@ -7,8 +7,8 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, StyleSheet } from 'react-native';
 
+import { API_BASE_URL } from '../(utils)/api_id';
 
-const API_BASE_URL = 'http://192.168.31.110:3001';
 
 export default function LoginScreen() {
   const [login, setLogin] = useState('');
@@ -44,7 +44,6 @@ export default function LoginScreen() {
         },
         body: JSON.stringify({ login, password }),
       });
-      Alert.alert("Here we fucking go!!!!")
 
       // Проверяем, успешен ли сам HTTP-запрос (статус 2xx)
       if (!response.ok) {
