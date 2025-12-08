@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 
 import { API_BASE_URL } from '../(utils)/api_id';
+import { formatDateTime } from '../(utils)/shift';
 
 interface EmployeeData {
   name: string;
@@ -108,21 +109,6 @@ export default function HomeScreen() {
         </ThemedView>
       </SimpleScrollView>
     );
-  }
-  
-
-  function formatDateTime(isoString: string): string {
-    const date = new Date(isoString);
-
-    // Получаем компоненты даты
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() возвращает 0–11
-    const year = date.getFullYear();
-
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-
-    return `${day}.${month}.${year} ${hours}:${minutes}`;
   }
 
   const formated_date = employeeData.lastCheckIn ? formatDateTime(employeeData.lastCheckIn) : "Нет данных";
